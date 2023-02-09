@@ -1,17 +1,101 @@
 var express = require('express');
+var mongoose = require('mongoose');
 var router = express.Router();
-// middleware que es específico a este router
-router.use(function timeLog(req, res, next) {
-console.log('Fecha actual: ', Date.now());
-next();
+
+
+//MODELS
+var Post = require('../models/Post.js')
+var User = require('../models/User.js')
+var db = mongoose.connection
+
+// GET del listado de posts ordenados por fecha de publicación
+router.get('/', function(req, res, next) {
+    //populate (nombre que tiene en el ej que lo referencia)
+    //cuando hga una ruta raiz de post sobre post nos hace un find 
+    //lo ordena decrecientemenre
+    //traemos todos los usarios
+    //tras user ponemos  -> proyeccion {_id:0,fullname:1}
+    Post.find().sort('-publicationdate').populate('user',{_id:0,fullname:1}).exec(function(err
+    , posts) {
+        if (err) res.status(500).send(err);
+        else res.status(200).json(posts);//tendo todos los post con el user completo
+    });
 });
-// define la ruta de la página del home
-router.get('/', function(req, res) {
-res.send('Página inicial de los posts');
+
+// GET de todos los posts de un usuario dado (identificado por su Id)
+router.get('/all/:id', function(req, res, next) {
+    Post.find({ 'user': req.params.id
+    }).sort('-publicationdate').populate('user').exec(function(err, posts)
+        {
+        if (err) res.status(500).send(err);
+        else res.status(200).json(posts);
+        });
 });
-// define la ruta de la página about
-router.get('/about', function(req, res) {
-res.send('Acerca de los posts');
+
+// POST de un nuevo post o entrada
+router.post('/', function(req, res, next) {
+    //comprobamos que el usuario existe
+    User.findById(req.body.iduser, function(err, userinfo) {
+        if (err) res.status(500).send(err);
+        else {
+            // crear la instancia Post
+            var postInstance = new Post({
+                user: req.body.iduser,
+                title: req.body.title,
+                description: req.body.description
+            });
+            // añadir postInstance al array de posts del usuario
+            userinfo.posts.push(postInstance);
+            // salvar el post en las colecciones users y posts
+            userinfo.save(function(err) {
+                if (err) res.status(500).send(err);
+                else {
+                    postInstance.save(function(err) {
+                        if (err) res.status(500).send(err);
+                            res.sendStatus(200);
+                });
+                }
+            });
+        }
+    });
 });
+
+// PUT de un post existente (identificado por su Id)
+router.put('/:id', function(req, res, next) {
+    Post.findByIdAndUpdate(req.params.id,req.body, function(err,  postinfo) {
+        if (err) res.status(500).send(err);
+        else res.sendStatus(200);
+    });
+});
+
+// DELETE de un post existente (identificado por su Id)
+router.delete('/:id', function(req, res, next) {
+    Post.findByIdAndDelete(req.params.id, function(err, postinfo) {
+        if (err) res.status(500).send(err);
+        else {
+            User.findByIdAndUpdate(postinfo.user, { $pull: { posts: postinfo._id } }, 
+                function(err, userinfo) {
+                    if (err) res.status(500).send(err);
+                    else {
+                    res.sendStatus(200);
+                    }
+                });
+        }
+    });
+});
+
+//  middleware que es específico a este router
+// router.use(function timeLog(req, res, next) {
+// console.log('Fecha actual: ', Date.now());
+// next();
+// });
+// // define la ruta de la página del home
+// router.get('/', function(req, res) {
+// res.send('Página inicial de los posts');
+// });
+// // define la ruta de la página about
+// router.get('/about', function(req, res) {
+// res.send('Acerca de los posts');
+// });
 
 module.exports = router;
