@@ -1,7 +1,7 @@
 var express = require('express');
 var mongoose = require('mongoose');
 var router = express.Router();
-
+const { body, validationResult } = require('express-validator');
 
 //MODELS
 var Post = require('../models/Post.js')
@@ -33,31 +33,37 @@ router.get('/all/:id', function(req, res, next) {
 });
 
 // POST de un nuevo post o entrada
-router.post('/', function(req, res, next) {
-    //comprobamos que el usuario existe
-    User.findById(req.body.iduser, function(err, userinfo) {
-        if (err) res.status(500).send(err);
-        else {
-            // crear la instancia Post
-            var postInstance = new Post({
-                user: req.body.iduser,
-                title: req.body.title,
-                description: req.body.description
-            });
-            // añadir postInstance al array de posts del usuario
-            userinfo.posts.push(postInstance);
-            // salvar el post en las colecciones users y posts
-            userinfo.save(function(err) {
-                if (err) res.status(500).send(err);
-                else {
-                    postInstance.save(function(err) {
-                        if (err) res.status(500).send(err);
-                            res.sendStatus(200);
-                });
-                }
-            });
+router.post('/', 
+    body('description', 'Escrima un formato email correcto').isLength({min:10, max:20}),
+    function(req, res, next) {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
         }
-    });
+        
+        User.findById(req.body.iduser, function(err, userinfo) {
+            if (err) res.status(500).send(err);
+            else {
+            // crear la instancia Post
+                var postInstance = new Post({
+                    user: req.body.iduser,
+                    title: req.body.title,
+                    description: req.body.description
+                });
+                // añadir postInstance al array de posts del usuario
+                userinfo.posts.push(postInstance);
+                // salvar el post en las colecciones users y posts
+                userinfo.save(function(err) {
+                    if (err) res.status(500).send(err);
+                    else {
+                        postInstance.save(function(err) {
+                        if (err) res.status(500).send(err);
+                        res.sendStatus(200);
+                        });
+                    }
+                });
+            }
+        });
 });
 
 // PUT de un post existente (identificado por su Id)
@@ -84,18 +90,5 @@ router.delete('/:id', function(req, res, next) {
     });
 });
 
-//  middleware que es específico a este router
-// router.use(function timeLog(req, res, next) {
-// console.log('Fecha actual: ', Date.now());
-// next();
-// });
-// // define la ruta de la página del home
-// router.get('/', function(req, res) {
-// res.send('Página inicial de los posts');
-// });
-// // define la ruta de la página about
-// router.get('/about', function(req, res) {
-// res.send('Acerca de los posts');
-// });
 
 module.exports = router;
