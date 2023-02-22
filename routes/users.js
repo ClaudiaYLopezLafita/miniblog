@@ -94,7 +94,7 @@ router.put('/', function(req, res, next){
 })
 
 router.get('/:role',function(req, res, next){
-  User.find(req.query.role,function(err, user) {
+  User.find(req.params.role,function(err, user) {
     if (err) res.status(500).send('¡Error comprobando el usuario!');
     // Si el usuario existe...
     if (user != null) {
